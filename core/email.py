@@ -17,8 +17,8 @@ class EmailService:
         self.smtp_password = os.getenv("SMTP_PASSWORD")
         self.from_email = os.getenv("FROM_EMAIL", self.smtp_username)
         self.from_name = os.getenv("FROM_NAME", "Your App")
-        self.base_url = os.getenv("BASE_URL", "http://localhost:8000")
-        self.app_name = os.getenv("APP_NAME", "Your App")
+        self.base_url = os.getenv("BASE_URL")
+        self.app_name = os.getenv("APP_NAME", "Gym Tool Recognizer")
 
         if not all([self.smtp_username, self.smtp_password]):
             logger.warning("Email service not properly configured. Missing SMTP credentials.")
