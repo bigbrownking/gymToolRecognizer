@@ -17,7 +17,16 @@ logging.basicConfig(level=logging.INFO)
 router = APIRouter(prefix="/gym-log", tags=["gym-log"])
 
 
-@router.patch("/flag")
+@router.patch(
+    "/flag",
+    summary="Mark gym attendance",
+    description="Mark a specific date as gym attended or missed by the user.",
+    responses={
+        200: {"description": "Attendance marked successfully"},
+        400: {"description": "Invalid data"},
+        500: {"description": "Internal server error"}
+    }
+)
 def mark_attendance(
     data: GymLogRequest,
     db: Session = Depends(get_db),
@@ -33,7 +42,15 @@ def mark_attendance(
         raise HTTPException(status_code=500, detail="Failed to mark attendance")
 
 
-@router.get("/logs")
+@router.get(
+    "/logs",
+    summary="Get all gym logs",
+    description="Retrieve all gym attendance logs for the current user.",
+    responses={
+        200: {"description": "Logs retrieved successfully"},
+        500: {"description": "Internal server error"}
+    }
+)
 def get_logs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -48,7 +65,16 @@ def get_logs(
         raise HTTPException(status_code=500, detail="Failed to retrieve logs")
 
 
-@router.get("/{log_date}")
+@router.get(
+    "/{log_date}",
+    summary="Get gym log by date",
+    description="Retrieve a specific gym log for the user by date.",
+    responses={
+        200: {"description": "Log entry found"},
+        404: {"description": "Log entry not found"},
+        500: {"description": "Internal server error"}
+    }
+)
 def get_log_by_date(
     log_date: date,
     db: Session = Depends(get_db),

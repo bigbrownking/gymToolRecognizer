@@ -78,7 +78,46 @@ router = APIRouter(prefix="/geo", tags=["geo"])
 gis_client = DvGisClient(settings.TOGIS_TOKEN)
 
 
-@router.get("/gyms", response_model=GymSearchResponse)
+@router.get(
+    "/gyms",
+    summary="Search gyms near a location",
+    description=(
+        "Searches for nearby gyms using 2GIS API based on latitude, longitude, "
+        "radius, and result limit. Returns name, address, coordinates, and optional rating."
+    ),
+    response_model=GymSearchResponse,
+    responses={
+        200: {
+            "description": "List of gyms found or error message",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "gyms": [
+                            {
+                                "name": "FitZone",
+                                "address": "улица Ленина, 10",
+                                "coordinates": {"lat": 43.115, "lon": 131.885},
+                                "rating": 4.5
+                            }
+                        ],
+                        "error": None
+                    }
+                }
+            }
+        },
+        500: {
+            "description": "Unexpected internal server error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "gyms": [],
+                        "error": "Internal error or 2GIS API issue"
+                    }
+                }
+            }
+        }
+    }
+)
 async def search_gyms(
         lat: float = Query(description="Latitude of search center"),
         lon: float = Query(description="Longitude of search center"),

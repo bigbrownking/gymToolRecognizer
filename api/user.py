@@ -17,7 +17,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/user", tags=["user"])
 
 
-@router.get("/profile", response_model=UserProfile)
+@router.get(
+    "/profile",
+    summary="Get user profile",
+    description="Returns the current authenticated user's profile information.",
+    response_model=UserProfile,
+    responses={
+        200: {"description": "Profile retrieved successfully"},
+        404: {"description": "User not found"},
+    },
+)
 def profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user = get_profile(db, current_user.email)
     if not user:
@@ -27,7 +36,16 @@ def profile(current_user: User = Depends(get_current_user), db: Session = Depend
     return user
 
 
-@router.put("/update", response_model=UserProfile)
+@router.put(
+    "/update",
+    summary="Update user profile",
+    description="Updates the profile of the authenticated user.",
+    response_model=UserProfile,
+    responses={
+        200: {"description": "Profile updated"},
+        404: {"description": "User not found or update failed"},
+    }
+)
 def update(
     current_user: User = Depends(get_current_user),
     profile_data: UserProfileUpdate = Body(...),
@@ -41,7 +59,17 @@ def update(
     return updated_user
 
 
-@router.post("/upload-profile-image")
+@router.post(
+    "/upload-profile-image",
+    summary="Upload profile image",
+    description="Uploads a new profile image for the current user. Max size: 5MB.",
+    responses={
+        200: {"description": "Profile image uploaded successfully"},
+        400: {"description": "Invalid file type or size"},
+        404: {"description": "User not found"},
+        500: {"description": "Failed to upload image"}
+    }
+)
 def upload_profile_image(
         file: UploadFile = File(...),
         current_user: User = Depends(get_current_user),
@@ -80,7 +108,15 @@ def upload_profile_image(
         raise HTTPException(status_code=500, detail="Failed to upload image")
 
 
-@router.delete("/profile-image")
+@router.delete(
+    "/profile-image",
+    summary="Delete profile image",
+    description="Removes the current user's profile image.",
+    responses={
+        200: {"description": "Profile image removed"},
+        404: {"description": "User not found"}
+    }
+)
 def delete_profile_image(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
@@ -94,7 +130,15 @@ def delete_profile_image(
     return {"message": "Profile image removed successfully"}
 
 
-@router.delete("/delete")
+@router.delete(
+    "/delete",
+    summary="Delete user account",
+    description="Deletes the authenticated user's account and all related data.",
+    responses={
+        200: {"description": "User deleted"},
+        404: {"description": "User not found or deletion failed"}
+    }
+)
 def delete(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     result = delete_user(db, current_user.email)
     if not result:

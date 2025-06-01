@@ -21,7 +21,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register")
+@router.post(
+    "/register",
+    summary="Register a new user",
+    description="Creates a new user account and sends a verification email.",
+    responses={
+        200: {"description": "User successfully registered"},
+        400: {"description": "Invalid input or user already exists"},
+        500: {"description": "Internal server error"}
+    }
+)
 def register(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     logger.info(f"Registration attempt for email: {user.email}")
     if not is_valid_email(user.email):
@@ -60,7 +69,17 @@ def register(user: UserCreate, background_tasks: BackgroundTasks, db: Session = 
     }
 
 
-@router.get("/verify-email")
+@router.get(
+    "/verify-email",
+    summary="Verify user email",
+    description="Verifies the user's email address using the provided token.",
+    responses={
+        200: {"description": "Email verified successfully"},
+        400: {"description": "Invalid or expired token"},
+        404: {"description": "User not found"},
+        500: {"description": "Server error during verification"}
+    }
+)
 def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
         email = verify_verification_token(token)
@@ -104,7 +123,25 @@ def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = De
         raise HTTPException(status_code=500, detail="Internal server error during verification")
 
 
-@router.post("/resend-verification")
+@router.post(
+    "/resend-verification",
+    summary="Resend email verification link",
+    description="Resends the email verification link to the provided email address.",
+    responses={
+        200: {
+            "description": "Verification email resent"
+        },
+        400: {
+            "description": "Invalid email or already verified"
+        },
+        404: {
+            "description": "User not found"
+        },
+        500: {
+            "description": "Internal server error"
+        }
+    }
+)
 def resend_verification_email(email: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     if not is_valid_email(email):
         raise HTTPException(status_code=400, detail="Invalid email format")
@@ -129,7 +166,25 @@ def resend_verification_email(email: str, background_tasks: BackgroundTasks, db:
     return {"msg": "Verification email sent successfully"}
 
 
-@router.post("/login")
+@router.post(
+    "/login",
+    summary="User login",
+    description="Authenticates a user and returns a JWT access token.",
+    responses={
+        200: {
+            "description": "Login successful, access token returned"
+        },
+        400: {
+            "description": "Invalid email format"
+        },
+        401: {
+            "description": "Invalid credentials"
+        },
+        500: {
+            "description": "Server error"
+        }
+    }
+)
 def login(user: UserLogin, db: Session = Depends(get_db)):
     logger.info(f"Login attempt for email: {user.email}")
     if not is_valid_email(user.email):
@@ -145,13 +200,40 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.get("/providers")
+@router.get(
+    "/providers",
+    summary="Get available OAuth providers",
+    description="Returns a list of supported third-party OAuth providers (e.g., Google, Microsoft, Discord).",
+    responses={
+        200: {
+            "description": "List of supported OAuth providers"
+        }
+    }
+)
 def get_oauth_providers():
     providers = oauth_service.get_available_providers()
     return {"providers": providers}
 
 
-@router.get("/{provider}/login")
+@router.get(
+    "/{provider}/login",
+    summary="Initiate OAuth login",
+    description="Starts the OAuth flow for the selected provider.",
+    responses={
+        200: {
+            "description": "Authorization URL returned"
+        },
+        400: {
+            "description": "Error initiating OAuth"
+        },
+        404: {
+            "description": "Provider not supported"
+        },
+        500: {
+            "description": "Internal server error"
+        }
+    }
+)
 def oauth_login(provider: str):
     supported_providers = ["google", "microsoft", "discord"]
 
@@ -171,7 +253,25 @@ def oauth_login(provider: str):
         raise HTTPException(status_code=500, detail="Failed to initiate OAuth login")
 
 
-@router.get("/{provider}/callback")
+@router.get(
+    "/{provider}/callback",
+    summary="OAuth callback handler",
+    description="Handles the callback from OAuth provider, exchanges code for token, and logs in the user.",
+    responses={
+        200: {
+            "description": "OAuth login successful, JWT token returned"
+        },
+        400: {
+            "description": "OAuth error or missing code/state"
+        },
+        404: {
+            "description": "Provider not supported"
+        },
+        500: {
+            "description": "OAuth authentication failed"
+        }
+    }
+)
 async def oauth_callback(provider: str, request: Request, db: Session = Depends(get_db)):
     supported_providers = ["google", "microsoft", "discord"]
 

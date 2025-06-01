@@ -21,7 +21,70 @@ router = APIRouter(tags=["cv"])
 recognizer = GymToolRecognizer("cv/model.pth")
 
 
-@router.post("/predict")
+@router.post(
+    "/predict",
+    summary="Predict gym tool from uploaded image",
+    description="""
+Upload a photo of a gym tool (equipment) and receive prediction results, 
+including tool name, description, associated muscles, and confidence score.
+
+Subscription required after free attempts are exhausted.
+""",
+    responses={
+        200: {
+            "description": "Successful prediction or informative rejection",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "Prediction Success": {
+                            "summary": "Gym tool detected",
+                            "value": {
+                                "is_gym_tool": True,
+                                "class_id": 3,
+                                "class_name": "dumbbell",
+                                "name": "Dumbbell",
+                                "description": "A short bar with weights...",
+                                "links": ["https://example.com/dumbbell1"],
+                                "alternative": "Barbell",
+                                "muscles": [
+                                    {
+                                        "name": "Biceps",
+                                        "primary": True,
+                                        "secondary": False,
+                                        "image_b64": "<base64string>"
+                                    }
+                                ],
+                                "confidence": 0.92,
+                                "entropy": 0.15,
+                                "requested_by": "user@example.com",
+                                "free_attempts_left": 2
+                            }
+                        },
+                        "Prediction Failure": {
+                            "summary": "Image not recognized",
+                            "value": {
+                                "is_gym_tool": False,
+                                "message": "No gym tool detected",
+                                "reason": "Low confidence",
+                                "confidence": 0.45,
+                                "entropy": 0.89,
+                                "requested_by": "user@example.com",
+                                "free_attempts_left": 1,
+                                "suggestions": [
+                                    "Please upload an image of gym equipment",
+                                    "Make sure the gym tool is clearly visible",
+                                    "Avoid images with multiple objects or unclear backgrounds"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        403: {"description": "No free attempts left"},
+        500: {"description": "Internal server error"}
+    }
+)
 async def predict(
         file: UploadFile = File(...),
         db: Session = Depends(get_db),

@@ -10,7 +10,26 @@ from model.user import User
 router = APIRouter(prefix="/payment", tags=["payment"])
 
 
-@router.post("/create-payment-intent/")
+@router.post(
+    "/create-payment-intent/",
+    summary="Create Stripe payment intent",
+    description="Creates a Stripe payment intent for the specified user and marks them as subscribed.",
+    responses={
+        200: {
+            "description": "Payment intent created and user marked as subscribed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "client_secret": "pi_1ExAmPlEsEcReT",
+                        "message": "Payment initiated, user marked as subscribed"
+                    }
+                }
+            },
+        },
+        404: {"description": "User not found"},
+        500: {"description": "Stripe error or internal failure"},
+    }
+)
 def create_payment_intent(
     payment: PaymentRequest,
     db: Session = Depends(get_db)
@@ -39,7 +58,26 @@ def create_payment_intent(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/check_subscription")
+@router.get(
+    "/check_subscription",
+    summary="Check user subscription status",
+    description="Returns whether the current authenticated user is subscribed.",
+    responses={
+        200: {
+            "description": "Subscription status returned",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "user_id": 1,
+                        "email": "user@example.com",
+                        "is_subscribed": True
+                    }
+                }
+            }
+        },
+        401: {"description": "Unauthorized"},
+    }
+)
 def check_subscription(current_user: User = Depends(get_current_user)):
     return {
         "user_id": current_user.id,
@@ -48,7 +86,26 @@ def check_subscription(current_user: User = Depends(get_current_user)):
     }
 
 
-@router.get("/get_free_attempts")
+@router.get(
+    "/get_free_attempts",
+    summary="Get user's remaining free attempts",
+    description="Returns how many free attempts the authenticated user has left.",
+    responses={
+        200: {
+            "description": "Free attempt count returned",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "user_id": 1,
+                        "email": "user@example.com",
+                        "free_attempts": 3
+                    }
+                }
+            }
+        },
+        401: {"description": "Unauthorized"},
+    }
+)
 def get_free_attempts(current_user: User = Depends(get_current_user)):
     return {
         "user_id": current_user.id,
