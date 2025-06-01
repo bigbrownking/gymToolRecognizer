@@ -1,9 +1,9 @@
 /venv/
-/cv/results/
+/project/cv/results/
 /.env
-/cv/dataset/
-/cv/dataset/labels/
+/project/cv/dataset/
+/project/cv/dataset/labels/
 /images/
 .idea
-/cv/logs/
+/project/cv/logs/
 /models.json
