@@ -23,9 +23,9 @@ recognizer = GymToolRecognizer("cv/model.pth")
 
 @router.post("/predict")
 async def predict(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+        file: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
 ):
     logger.info(f"Received image for prediction from user: {current_user.email}")
 
@@ -41,27 +41,61 @@ async def predict(
 
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data))
-        logger.info("Image successfully loaded into memory.")
+        logger.info(f"Image successfully loaded into memory. Original mode: {image.mode}")
+
+        # Ensure image is in RGB mode early to prevent issues
+        if image.mode != 'RGB':
+            if image.mode in ('RGBA', 'LA', 'P'):
+                # Handle transparency properly
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                if image.mode == 'P':
+                    image = image.convert('RGBA')
+                if image.mode in ('RGBA', 'LA'):
+                    background.paste(image, mask=image.split()[-1])
+                    image = background
+                else:
+                    image = background
+            else:
+                image = image.convert('RGB')
+            logger.info(f"Converted image to RGB mode")
+
+        # Get prediction with validation
+        prediction_result = recognizer.predict_image(image, confidence_threshold=0.7)
+
+        # Check if image was identified as a gym tool
+        if not prediction_result["is_gym_tool"]:
+            logger.info(f"Image rejected: {prediction_result['message']}")
+            return {
+                "is_gym_tool": False,
+                "message": prediction_result["message"],
+                "reason": prediction_result["reason"],
+                "confidence": prediction_result.get("confidence", 0),
+                "entropy": prediction_result.get("entropy", 0),
+                "requested_by": current_user.email,
+                "free_attempts_left": current_user.free_attempts if not current_user.is_sub else "∞",
+                "suggestions": [
+                    "Please upload an image of gym equipment",
+                    "Make sure the gym tool is clearly visible",
+                    "Avoid images with multiple objects or unclear backgrounds"
+                ]
+            }
+
+        predicted_id = prediction_result["predicted_class"]
+        predicted_name = prediction_result["class_name"]
+        confidence_score = prediction_result["confidence"]
+
+        logger.info(f"Model predicted class ID: {predicted_id} with confidence: {confidence_score:.4f}")
 
         gym_tools = db.query(GymTool).all()
         if not gym_tools:
             logger.warning("No gym tools found in database.")
             return {"error": "No gym tools found in database."}
 
-        predicted_id = recognizer.predict_image(image)
-        logger.info(f"Model predicted class ID: {predicted_id}")
-
-        predicted_name = CLASS_NAMES.get(predicted_id, None)
-        if not predicted_name:
-            logger.warning(f"Class name not found for ID: {predicted_id}")
-            return {"error": f"Class name not found for ID: {predicted_id}"}
-
         gym_tool = db.query(GymTool).filter(GymTool.name == predicted_name).first()
         if not gym_tool:
             logger.warning(f"Predicted ID {predicted_id} not found in DB.")
-            return {"error": "Predicted gym tool not found."}
+            return {"error": "Predicted gym tool not found in database."}
 
-        encoded_image = image_to_base64(image)
         muscles_info = []
         for assoc in gym_tool.muscle_associations:
             muscle_data = {
@@ -87,6 +121,7 @@ async def predict(
             muscles_info.append(muscle_data)
 
         response = {
+            "is_gym_tool": True,
             "class_id": gym_tool.id,
             "class_name": predicted_name,
             "name": gym_tool.name,
@@ -94,9 +129,10 @@ async def predict(
             "links": gym_tool.links,
             "alternative": gym_tool.alternative,
             "muscles": muscles_info,
+            "confidence": confidence_score,
+            "entropy": prediction_result.get("entropy"),
             "requested_by": current_user.email,
             "free_attempts_left": current_user.free_attempts if not current_user.is_sub else "∞",
-            "image_b64": encoded_image
         }
 
         logger.info("Prediction response generated successfully.")
@@ -105,4 +141,3 @@ async def predict(
     except Exception as e:
         logger.error(f"Prediction failed: {str(e)}")
         return {"error": "Internal server error"}
-

@@ -1,13 +1,38 @@
 import base64
+import io
 from io import BytesIO
 from PIL import Image
 
 
-def image_to_base64(image: Image.Image, format="JPEG") -> str:
-    """Convert PIL Image to base64 string"""
-    buffered = BytesIO()
-    image.save(buffered, format=format)
-    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+def image_to_base64(image: Image.Image) -> str:
+    try:
+        if image.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image = image.convert('RGBA')
+            background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+            image = background
+        elif image.mode != 'RGB':
+            image = image.convert('RGB')
+
+        buffer = io.BytesIO()
+        image.save(buffer, format='JPEG', quality=85)
+        buffer.seek(0)
+
+        image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        return f"data:image/jpeg;base64,{image_base64}"
+
+    except Exception as e:
+        print(f"Error converting image to base64: {str(e)}")
+        try:
+            buffer = io.BytesIO()
+            image.save(buffer, format='PNG')
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            return f"data:image/png;base64,{image_base64}"
+        except Exception as fallback_error:
+            print(f"Fallback PNG conversion also failed: {str(fallback_error)}")
+            raise
 
 
 CLASS_NAMES = {

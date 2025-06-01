@@ -14,6 +14,9 @@ from torchvision import datasets, transforms, models
 from torch.utils.data import WeightedRandomSampler
 # import matplotlib.pyplot as plt
 from torchvision.transforms import v2
+
+from core.converter import CLASS_NAMES
+
 # from tqdm import tqdm
 # from sklearn.metrics import classification_report
 # from core.converter import CLASS_NAMES
@@ -127,9 +130,13 @@ class GymToolRecognizer:
         except FileNotFoundError:
             print(f"No saved model found at {self.model_path}, starting fresh.")
 
-    def predict_image(self, image: Image.Image) -> int:
+    def predict_image(self, image: Image.Image, confidence_threshold: float = 0.7) -> dict:
+        """
+        Predict class for a single image with confidence validation
+        Returns dict with prediction info or None if not a gym tool
+        """
         self.model.eval()
-        """Predict class for a single image with any shape"""
+
         if image.mode != 'RGB':
             image = image.convert('RGB')
 
@@ -141,15 +148,56 @@ class GymToolRecognizer:
         ])
 
         try:
-            image = transform(image).unsqueeze(0).to(DEVICE)
-
-            # Add debug print to check input dimensions
-            print(f"Input tensor shape: {image.shape}")
+            image_tensor = transform(image).unsqueeze(0).to(DEVICE)
+            print(f"Input tensor shape: {image_tensor.shape}")
 
             with torch.no_grad():
-                outputs = self.model(image)
-                _, predicted_class = torch.max(outputs, 1)
-            return predicted_class.item()
+                outputs = self.model(image_tensor)
+                # Apply softmax to get probabilities
+                probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                confidence, predicted_class = torch.max(probabilities, 1)
+
+                confidence_score = confidence.item()
+                predicted_id = predicted_class.item()
+
+                print(f"Predicted class: {predicted_id}, Confidence: {confidence_score:.4f}")
+
+                # Calculate entropy for uncertainty detection
+                entropy = -torch.sum(probabilities * torch.log(probabilities + 1e-8), dim=1).item()
+                max_entropy = torch.log(torch.tensor(NUM_CLASSES, dtype=torch.float32)).item()
+                normalized_entropy = entropy / max_entropy
+
+                print(f"Entropy: {entropy:.4f}, Normalized: {normalized_entropy:.4f}")
+
+                # Check if confidence is above threshold
+                if confidence_score < confidence_threshold:
+                    return {
+                        "is_gym_tool": False,
+                        "reason": "low_confidence",
+                        "confidence": confidence_score,
+                        "entropy": normalized_entropy,
+                        "threshold": confidence_threshold,
+                        "message": f"Image doesn't appear to be a gym tool (confidence: {confidence_score:.2%})"
+                    }
+
+                # Additional check: high entropy indicates uncertainty
+                if normalized_entropy > 0.8:  # High uncertainty
+                    return {
+                        "is_gym_tool": False,
+                        "reason": "high_uncertainty",
+                        "confidence": confidence_score,
+                        "entropy": normalized_entropy,
+                        "message": "Image classification is too uncertain - likely not a gym tool"
+                    }
+
+                return {
+                    "is_gym_tool": True,
+                    "predicted_class": predicted_id,
+                    "confidence": confidence_score,
+                    "entropy": normalized_entropy,
+                    "class_name": CLASS_NAMES.get(predicted_id, "Unknown")
+                }
+
         except Exception as e:
             print(f"Error during prediction: {str(e)}")
             raise
