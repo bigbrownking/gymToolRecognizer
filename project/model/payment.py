@@ -7,11 +7,11 @@ from project.core.database import Base
 
 
 class PaymentStatus(enum.Enum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELED = "canceled"
-    REFUNDED = "refunded"
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELED = "CANCELED"
+    REFUNDED = "REFUNDED"
 
 
 class Payment(Base):

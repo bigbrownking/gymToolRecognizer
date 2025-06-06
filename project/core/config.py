@@ -54,5 +54,19 @@ class Settings(BaseSettings):
         extra = "allow"
 
 
+SUBSCRIPTION_PLANS = {
+    "monthly": {
+        "price": 0.50,
+        "duration_months": 1,
+        "name": "Basic Monthly"
+    },
+    "yearly": {
+        "price": 99.99,
+        "duration_months": 12,
+        "name": "Yearly Plan"
+    }
+}
+
+
 settings = Settings()
 

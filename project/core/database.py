@@ -49,7 +49,7 @@ def upload_image_to_minio(file_bytes: bytes, file_name: str, bucket_name: str) -
     try:
         logger.info(f"Uploading image: {file_name} to MinIO...")
         minio_client.put_object(
-            bucket_name=settings.MINIO_BUCKET,
+            bucket_name=bucket_name,
             object_name=file_name,
             data=io.BytesIO(file_bytes),
             length=len(file_bytes),
