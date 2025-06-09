@@ -140,11 +140,22 @@ class GymToolRecognizer:
         if image.mode != 'RGB':
             image = image.convert('RGB')
 
-        transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        base_transforms = [
+            transforms.Lambda(lambda img: img.convert("RGB")),
+            v2.Resize((256, 256)),
+            v2.CenterCrop(224),
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+
+        transform = v2.Compose(base_transforms[:3] + [
+            v2.RandomHorizontalFlip(),
+            v2.RandomVerticalFlip(),
+            v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            v2.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+            v2.RandomPerspective(p=0.5),
+            *base_transforms[3:]
         ])
 
         try:
