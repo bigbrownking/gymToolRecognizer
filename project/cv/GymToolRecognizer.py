@@ -130,7 +130,7 @@ class GymToolRecognizer:
         except FileNotFoundError:
             print(f"No saved model found at {self.model_path}, starting fresh.")
 
-    def predict_image(self, image: Image.Image, confidence_threshold: float = 0.7) -> dict:
+    def predict_image(self, image: Image.Image, confidence_threshold: float = 0.5) -> dict:
         """
         Predict class for a single image with confidence validation
         Returns dict with prediction info or None if not a gym tool

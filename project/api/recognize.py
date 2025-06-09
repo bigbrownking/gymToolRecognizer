@@ -120,7 +120,7 @@ async def predict(
             logger.info(f"Converted image to RGB mode")
 
         # Get prediction with validation
-        prediction_result = recognizer.predict_image(image, confidence_threshold=0.7)
+        prediction_result = recognizer.predict_image(image, confidence_threshold=0.5)
 
         # Check if image was identified as a gym tool
         if not prediction_result["is_gym_tool"]:
