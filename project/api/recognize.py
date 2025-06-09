@@ -166,18 +166,8 @@ async def predict(
 
             if assoc.muscle.image_url:
                 logger.info(f"Converting muscle image URL to base64: {assoc.muscle.image_url}")
-                muscle_image_b64 = get_image_from_minio(assoc.muscle.image_url)
-                if muscle_image_b64:
-                    muscle_data["image_b64"] = muscle_image_b64
-                    logger.info(f"Successfully encoded muscle image for: {assoc.muscle.name}")
-                else:
-                    muscle_data["image_url"] = assoc.muscle.image_url
-                    muscle_data["image_b64"] = None
-                    logger.warning(f"Failed to encode muscle image, keeping URL: {assoc.muscle.name}")
-            else:
-                muscle_data["image_url"] = None
-                muscle_data["image_b64"] = None
-
+                muscle_data["image_url"] = assoc.muscle.image_url
+                logger.warning(f"Failed to encode muscle image, keeping URL: {assoc.muscle.name}")
             muscles_info.append(muscle_data)
 
         response = {
