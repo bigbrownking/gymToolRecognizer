@@ -120,7 +120,7 @@ async def predict(
             logger.info(f"Converted image to RGB mode")
 
         # Get prediction with validation
-        prediction_result = recognizer.predict_image(image, confidence_threshold=0.5)
+        prediction_result = recognizer.predict_image(image)
 
         # Check if image was identified as a gym tool
         if not prediction_result["is_gym_tool"]:
@@ -165,9 +165,7 @@ async def predict(
             }
 
             if assoc.muscle.image_url:
-                logger.info(f"Converting muscle image URL to base64: {assoc.muscle.image_url}")
                 muscle_data["image_url"] = assoc.muscle.image_url
-                logger.warning(f"Failed to encode muscle image, keeping URL: {assoc.muscle.name}")
             muscles_info.append(muscle_data)
 
         response = {

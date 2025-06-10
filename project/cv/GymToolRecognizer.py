@@ -1,9 +1,11 @@
 # import os
 # from datetime import datetime
 # import numpy as np
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 from PIL import Image
 # from torch.cuda.amp import GradScaler, autocast
 # from torch.optim.lr_scheduler import OneCycleLR
@@ -130,82 +132,92 @@ class GymToolRecognizer:
         except FileNotFoundError:
             print(f"No saved model found at {self.model_path}, starting fresh.")
 
-    def predict_image(self, image: Image.Image, confidence_threshold: float = 0.5) -> dict:
+    def predict_image(self, image: Image.Image, confidence_threshold: float = 0.6) -> dict:
         """
-        Predict class for a single image with confidence validation
-        Returns dict with prediction info or None if not a gym tool
+        Quick fix: Add temperature scaling to reduce overconfidence
         """
         self.model.eval()
 
         if image.mode != 'RGB':
             image = image.convert('RGB')
 
-        base_transforms = [
+        inference_transform = v2.Compose([
             transforms.Lambda(lambda img: img.convert("RGB")),
             v2.Resize((256, 256)),
             v2.CenterCrop(224),
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
             v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-
-        transform = v2.Compose(base_transforms[:3] + [
-            v2.RandomHorizontalFlip(),
-            v2.RandomVerticalFlip(),
-            v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-            v2.RandomAffine(degrees=0, translate=(0.1, 0.1)),
-            v2.RandomPerspective(p=0.5),
-            *base_transforms[3:]
         ])
 
         try:
-            image_tensor = transform(image).unsqueeze(0).to(DEVICE)
-            print(f"Input tensor shape: {image_tensor.shape}")
+            image_tensor = inference_transform(image).unsqueeze(0).to(DEVICE)
 
             with torch.no_grad():
-                outputs = self.model(image_tensor)
-                # Apply softmax to get probabilities
-                probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                # Get raw logits
+                logits = self.model(image_tensor)
+
+                # TEMPERATURE SCALING - This is the key fix!
+                temperature = 3.0  # Increase this to reduce overconfidence
+                calibrated_logits = logits / temperature
+
+                # Get probabilities from calibrated logits
+                probabilities = F.softmax(calibrated_logits, dim=1)
                 confidence, predicted_class = torch.max(probabilities, 1)
 
                 confidence_score = confidence.item()
                 predicted_id = predicted_class.item()
 
-                print(f"Predicted class: {predicted_id}, Confidence: {confidence_score:.4f}")
+                # Get max raw logit for additional validation
+                max_logit = torch.max(logits).item()
+                logit_std = torch.std(logits).item()
 
-                # Calculate entropy for uncertainty detection
-                entropy = -torch.sum(probabilities * torch.log(probabilities + 1e-8), dim=1).item()
-                max_entropy = torch.log(torch.tensor(NUM_CLASSES, dtype=torch.float32)).item()
-                normalized_entropy = entropy / max_entropy
+                print(f"Max logit: {max_logit:.3f}, Logit std: {logit_std:.3f}")
+                print(f"Calibrated confidence: {confidence_score:.4f}")
 
-                print(f"Entropy: {entropy:.4f}, Normalized: {normalized_entropy:.4f}")
+                # ENHANCED VALIDATION
 
-                # Check if confidence is above threshold
+                # 1. Check raw logit strength
+                if max_logit < 1.5:  # Model not strongly activated
+                    return {
+                        "is_gym_tool": False,
+                        "reason": "weak_activation",
+                        "confidence": confidence_score,
+                        "max_logit": max_logit,
+                        "message": f"Model shows weak activation (logit: {max_logit:.3f})"
+                    }
+
+                # 2. Check logit variance
+                if logit_std < 0.8:  # Low variance = uncertain
+                    return {
+                        "is_gym_tool": False,
+                        "reason": "low_variance",
+                        "confidence": confidence_score,
+                        "logit_std": logit_std,
+                        "message": f"Low prediction variance indicates uncertainty"
+                    }
+
+                # 3. Calibrated confidence check
                 if confidence_score < confidence_threshold:
                     return {
                         "is_gym_tool": False,
-                        "reason": "low_confidence",
+                        "reason": "low_calibrated_confidence",
                         "confidence": confidence_score,
-                        "entropy": normalized_entropy,
-                        "threshold": confidence_threshold,
-                        "message": f"Image doesn't appear to be a gym tool (confidence: {confidence_score:.2%})"
+                        "message": f"Low calibrated confidence: {confidence_score:.2%}"
                     }
 
-                # Additional check: high entropy indicates uncertainty
-                if normalized_entropy > 0.8:  # High uncertainty
-                    return {
-                        "is_gym_tool": False,
-                        "reason": "high_uncertainty",
-                        "confidence": confidence_score,
-                        "entropy": normalized_entropy,
-                        "message": "Image classification is too uncertain - likely not a gym tool"
-                    }
+                # Calculate entropy
+                entropy = -torch.sum(probabilities * torch.log(probabilities + 1e-8), dim=1).item()
+                max_entropy = torch.log(torch.tensor(NUM_CLASSES, dtype=torch.float32)).item()
+                normalized_entropy = entropy / max_entropy
 
                 return {
                     "is_gym_tool": True,
                     "predicted_class": predicted_id,
                     "confidence": confidence_score,
                     "entropy": normalized_entropy,
+                    "max_logit": max_logit,
+                    "logit_std": logit_std,
                     "class_name": CLASS_NAMES.get(predicted_id, "Unknown")
                 }
 
