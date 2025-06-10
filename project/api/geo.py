@@ -1,7 +1,11 @@
+from http.client import HTTPException
+
 import requests
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 
 from project.core.config import settings
+from project.core.security import get_current_user
+from project.model.user import User
 from project.schemas.location import GymSearchResponse
 import logging
 
@@ -105,6 +109,28 @@ gis_client = DvGisClient(settings.TOGIS_TOKEN)
                 }
             }
         },
+        400: {
+            "description": "Consent not given",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "gyms": [],
+                        "error": "Consent is required"
+                    }
+                }
+            }
+        },
+        401: {
+            "description": "Authentication failed",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "gyms": [],
+                        "error": "Not authenticated"
+                    }
+                }
+            }
+        },
         500: {
             "description": "Unexpected internal server error",
             "content": {
@@ -119,11 +145,18 @@ gis_client = DvGisClient(settings.TOGIS_TOKEN)
     }
 )
 async def search_gyms(
-        lat: float = Query(description="Latitude of search center"),
-        lon: float = Query(description="Longitude of search center"),
-        radius: int = Query(1000, ge=100, le=5000, description="Search radius in meters (100-5000)"),
-        limit: int = Query(10, ge=1, le=50, description="Number of results to return (1-50)")
+    current_user: User = Depends(get_current_user),
+    lat: float = Query(description="Latitude of search center"),
+    lon: float = Query(description="Longitude of search center"),
+    radius: int = Query(1000, ge=100, le=5000, description="Search radius in meters (100-5000)"),
+    limit: int = Query(10, ge=1, le=50, description="Number of results to return (1-50)"),
 ):
+    if not current_user.consent_given:
+        raise HTTPException(
+            status_code=400,
+            detail="Consent is required"
+        )
+
     try:
         gyms = gis_client.find_nearby_gyms(
             latitude=lat,
@@ -138,4 +171,5 @@ async def search_gyms(
         return GymSearchResponse(gyms=gyms)
 
     except Exception as e:
-        return GymSearchResponse(error=str(e))
+        logger.error(f"Unexpected error during gym search: {str(e)}")
+        return GymSearchResponse(error="Internal error")

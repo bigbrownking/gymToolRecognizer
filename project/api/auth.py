@@ -32,6 +32,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 )
 def register(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     logger.info(f"Registration attempt for email: {user.email}")
+    if not user.consent_given:
+        raise HTTPException(status_code=400, detail="Consent is required")
+
     if not is_valid_email(user.email):
         raise HTTPException(status_code=400, detail="Invalid email format")
 

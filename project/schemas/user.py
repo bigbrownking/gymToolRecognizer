@@ -12,6 +12,13 @@ class UserCreate(UserBase):
     username: str
     gender: Optional[str] = None
     dateOfBirth: Optional[date] = None
+    consent_given: bool
+
+    @validator('consent_given')
+    def validate_consent(cls, v):
+        if not v:
+            raise ValueError('You must agree to the processing of personal data')
+        return v
 
     @validator('dateOfBirth')
     def validate_date_of_birth(cls, v):
@@ -44,6 +51,9 @@ class UserProfile(UserBase):
 
     is_oauth_user: bool = False
     oauth_provider: Optional[str] = None
+
+    consent_given: bool
+    consent_date: Optional[datetime] = None
 
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

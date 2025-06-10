@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
@@ -31,7 +31,9 @@ def create_user(db: Session, user_data: UserCreate, is_active: bool = False):
         dateOfBirth=user_data.dateOfBirth,
         is_active=is_active,
         is_sub=False,
-        free_attempts=5
+        free_attempts=5,
+        consent_given=user_data.consent_given,
+        consent_date=datetime.utcnow() if user_data.consent_given else None
     )
 
     logger.info(f"User is : {new_user}")
@@ -61,7 +63,9 @@ def create_oauth_user(
         free_attempts=5,
         gender=None,
         dateOfBirth=None,
-        age=None
+        age=None,
+        consent_given=True,
+        consent_date=datetime.utcnow()
     )
 
     db.add(db_user)

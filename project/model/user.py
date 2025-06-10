@@ -24,6 +24,9 @@ class User(Base):
     oauth_provider = Column(String, nullable=True)
     oauth_id = Column(String, nullable=True)
 
+    consent_given = Column(Boolean, default=False)
+    consent_date = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 

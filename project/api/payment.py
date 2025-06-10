@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from project.core.config import SUBSCRIPTION_PLANS, settings
 from project.core.database import get_db
 from project.core.security import get_current_user
+from project.model.user import User
 from project.schemas.payment import PaymentRequest
 from project.crud.payment import (
     create_payment_record,
@@ -26,9 +27,12 @@ router = APIRouter(prefix="/payment", tags=["payment"])
 @router.post("/create-payment-intent/")
 def create_payment_intent(
     payment_request: PaymentRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if not current_user.consent_given:
+        raise HTTPException(status_code=400, detail="Consent is required")
+
     try:
         payment = create_payment_record(db, current_user.id, payment_request.plan_id)
         plan = payment_request.plan_id
