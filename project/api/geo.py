@@ -1,13 +1,17 @@
-from http.client import HTTPException
+import json  # Required for manual decoding
+import logging
+from typing import List
+
+from fastapi import APIRouter, Query, Depends, HTTPException
+from requests import RequestException
 
 import requests
-from fastapi import APIRouter, Query, Depends
+from starlette.responses import JSONResponse
 
 from project.core.config import settings
 from project.core.security import get_current_user
 from project.model.user import User
 from project.schemas.location import GymSearchResponse
-import logging
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -39,7 +43,10 @@ class DvGisClient:
             response = requests.get(url, params=params)
             response.raise_for_status()
 
-            data = response.json()
+            # Explicitly decode as UTF-8 to handle Cyrillic or non-ASCII characters
+            data_str = response.content.decode("utf-8")
+            data = json.loads(data_str)
+
             logger.info(f"Received response from 2Gis API")
             logger.info(f"Raw response data: {data}")
 
@@ -72,7 +79,7 @@ class DvGisClient:
             logger.info(f"Processed gyms: {gyms}")
             return gyms
 
-        except requests.exceptions.RequestException as e:
+        except RequestException as e:
             logger.error(f"Request failed: {str(e)}", exc_info=True)
             return {"error": str(e)}
 
@@ -146,8 +153,8 @@ gis_client = DvGisClient(settings.TOGIS_TOKEN)
 )
 async def search_gyms(
     current_user: User = Depends(get_current_user),
-    lat: float = Query(description="Latitude of search center"),
-    lon: float = Query(description="Longitude of search center"),
+    lat: float = Query(..., description="Latitude of search center"),
+    lon: float = Query(..., description="Longitude of search center"),
     radius: int = Query(1000, ge=100, le=5000, description="Search radius in meters (100-5000)"),
     limit: int = Query(10, ge=1, le=50, description="Number of results to return (1-50)"),
 ):
@@ -166,10 +173,19 @@ async def search_gyms(
         )
 
         if isinstance(gyms, dict) and "error" in gyms:
-            return GymSearchResponse(error=gyms["error"])
+            return JSONResponse(
+                content=GymSearchResponse(error=gyms["error"]).dict(),
+                media_type="application/json; charset=utf-8"
+            )
 
-        return GymSearchResponse(gyms=gyms)
+        return JSONResponse(
+            content=GymSearchResponse(gyms=gyms).dict(),
+            media_type="application/json; charset=utf-8"
+        )
 
     except Exception as e:
         logger.error(f"Unexpected error during gym search: {str(e)}")
-        return GymSearchResponse(error="Internal error")
+        return JSONResponse(
+            content=GymSearchResponse(error="Internal error").dict(),
+            media_type="application/json; charset=utf-8"
+        )
