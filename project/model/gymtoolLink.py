@@ -8,6 +8,7 @@ class GymToolLink(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     gym_tool_id = Column(Integer, ForeignKey("gymtools.id", ondelete="CASCADE"))
+    name = Column(String, nullable=False)
     url = Column(String, nullable=False)
 
     gym_tool = relationship("GymTool", back_populates="links")

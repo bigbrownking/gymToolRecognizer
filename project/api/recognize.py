@@ -159,9 +159,8 @@ async def predict(
         muscles_info = []
         for assoc in gym_tool.muscle_associations:
             muscle_data = {
-                "name": assoc.muscle.name,
-                "primary": assoc.primary_muscles,
-                "secondary": assoc.secondary_muscles,
+                "основные мышцы": assoc.primary_muscles,
+                "второстепенные мышцы": assoc.secondary_muscles,
             }
 
             if assoc.muscle.image_url:
