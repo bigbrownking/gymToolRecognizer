@@ -134,9 +134,9 @@ async def predict(
                 "requested_by": current_user.email,
                 "free_attempts_left": current_user.free_attempts if not current_user.is_sub else "∞",
                 "suggestions": [
-                    "Please upload an image of gym equipment",
-                    "Make sure the gym tool is clearly visible",
-                    "Avoid images with multiple objects or unclear backgrounds"
+                    "Пожалуйста, загрузите изображение тренажеров",
+                    "Убедитесь, что тренажеры четко видны",
+                    "Избегайте изображений с несколькими объектами или нечетким фоном"
                 ]
             }
 
@@ -159,8 +159,8 @@ async def predict(
         muscles_info = []
         for assoc in gym_tool.muscle_associations:
             muscle_data = {
-                "основные мышцы": assoc.primary_muscles,
-                "второстепенные мышцы": assoc.secondary_muscles,
+                "Основные мышцы": assoc.primary_muscles,
+                "Второстепенные мышцы": assoc.secondary_muscles,
             }
 
             if assoc.muscle.image_url:
